@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070d19">
+  <title>Chinh phục Thành cổ mật mã — Giải mã mê cung</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%8F%B0%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-view="landing">
+
+  <!-- ===================== THANH TRÊN CÙNG ===================== -->
+  <header class="topbar">
+    <div class="brand">
+      <h1>🏰 CHINH PHỤC THÀNH CỔ MẬT MÃ</h1>
+      <p id="subtitle">Thử thách – Giải mã mê cung</p>
+    </div>
+    <div class="top-controls">
+      <span id="connStatus" class="conn" hidden>● …</span>
+      <button id="roomBadge" class="room-badge" type="button" hidden title="Xem mã QR / link phòng">
+        <span>🔑 PHÒNG</span><b id="roomCodeText"></b><span class="qr-hint">📱 QR</span>
+      </button>
+      <span id="roleBadge" class="role-badge" hidden></span>
+      <div id="timerBox" class="timer-box" hidden>--:--</div>
+      <button id="btnSfx" class="btn btn-icon" type="button" title="Bật/tắt hiệu ứng âm thanh" hidden>🔊</button>
+      <button id="btnBgm" class="btn btn-icon host-only" type="button" title="Bật/tắt nhạc nền (chỉ máy cô)" hidden>🎵</button>
+      <button id="btnExit" class="btn btn-icon" type="button" title="Thoát phòng" hidden>⎋</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ===================== MÀN HÌNH CHỌN VAI TRÒ ===================== -->
+    <section id="viewLanding" class="view">
+      <div class="landing">
+        <div class="role-card teacher-card">
+          <div class="role-emoji">👑</div>
+          <h2>Giáo viên</h2>
+          <p>Máy chiếu của lớp: tạo phòng, xem tiến độ các đội, bắt đầu / kết thúc, xem kết quả.</p>
+          <button id="btnCreateRoom" class="btn btn-gold btn-xl" type="button">➕ Tạo phòng mới</button>
+          <button id="btnResumeHost" class="btn btn-xl" type="button" hidden>↩️ Mở lại phòng <b id="resumeHostCode"></b></button>
+          <div id="landingHostMsg" class="form-msg"></div>
+        </div>
+
+        <div class="role-card student-card">
+          <div class="role-emoji">📱</div>
+          <h2>Học sinh</h2>
+          <p>Mỗi đội dùng <b>một điện thoại</b>. Quét mã QR trên máy chiếu hoặc nhập mã phòng.</p>
+          <form id="joinForm" autocomplete="off">
+            <input id="roomInput" class="input input-code" maxlength="6" placeholder="MÃ PHÒNG" autocapitalize="characters" spellcheck="false" inputmode="text">
+            <button class="btn btn-success btn-xl" type="submit">🚀 Vào phòng</button>
+          </form>
+          <div id="landingStudentMsg" class="form-msg"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== MÀN HÌNH GIÁO VIÊN ===================== -->
+    <section id="viewHost" class="view" hidden>
+      <!-- Phòng chờ + cài đặt -->
+      <div id="hostLobby">
+        <div class="lobby-grid">
+          <div class="card join-card">
+            <h2>📱 Cho học sinh vào phòng</h2>
+            <div id="lobbyQr" class="qr-box"></div>
+            <div class="big-code" id="lobbyCode"></div>
+            <div class="small-note" id="lobbyLink"></div>
+            <div id="fileWarning" class="warn-box" hidden>
+              ⚠️ Bạn đang mở file trực tiếp (<code>file://</code>) nên điện thoại không vào được. Hãy mở game bằng đường link web (ví dụ trang đã triển khai trên Vercel).
+            </div>
+            <div class="row-gap">
+              <button class="btn" id="btnCopyLink" type="button">📋 Sao chép link</button>
+              <button class="btn" id="btnBigQr" type="button">🔍 Phóng to QR</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>🪑 Các đội đã vào</h2>
+            <div id="seats" class="seats"></div>
+            <p class="small-note">Mỗi đội dùng đúng 1 điện thoại. Chọn "Mời ra" nếu một em chọn nhầm đội.</p>
+          </div>
+
+          <div class="card settings">
+            <h2>⚙️ Cài đặt trận</h2>
+            <label>Nội dung <select id="cfgDivisor" class="input"></select></label>
+            <label>Độ khó
+              <select id="cfgSteps" class="input">
+                <option value="6">Dễ — 6 bước</option>
+                <option value="8">Vừa — 8 bước</option>
+                <option value="10">Khó — 10 bước</option>
+              </select>
+            </label>
+            <label>Thời gian
+              <select id="cfgDuration" class="input">
+                <option value="120">2 phút</option><option value="180">3 phút</option>
+                <option value="300">5 phút</option><option value="480">8 phút</option>
+                <option value="600">10 phút</option>
+              </select>
+            </label>
+            <label>Phạt mỗi lỗi sai
+              <select id="cfgPenalty" class="input">
+                <option value="0">Không phạt</option><option value="5">+5 giây</option>
+                <option value="10">+10 giây</option><option value="15">+15 giây</option>
+                <option value="20">+20 giây</option>
+              </select>
+            </label>
+            <label>Mê cung
+              <select id="cfgSame" class="input">
+                <option value="0">Mỗi đội một mê cung riêng (chống chép bài)</option>
+                <option value="1">Cả 4 đội cùng một mê cung</option>
+              </select>
+            </label>
+            <label class="check"><input type="checkbox" id="cfgLanes"> Hiện tiến độ các đội trên máy chiếu</label>
+            <label class="check"><input type="checkbox" id="cfgHint"> Hiện gợi ý "dấu hiệu chia hết" cho học sinh</label>
+            <button class="btn" id="btnPreview" type="button">🔍 Xem thử một mê cung mẫu</button>
+          </div>
+        </div>
+
+        <div class="actionbar">
+          <button id="btnStart" class="btn btn-gold btn-xl" type="button" disabled>🚀 BẮT ĐẦU THỬ THÁCH</button>
+          <span id="startHint" class="small-note"></span>
+        </div>
+      </div>
+
+      <!-- Đường đua -->
+      <div id="hostRace" hidden>
+        <div class="race-top">
+          <div id="raceMission" class="mission"></div>
+          <div id="raceStatus" class="race-status"></div>
+        </div>
+        <div id="lanes" class="lanes"></div>
+        <div class="race-bottom">
+          <div id="raceHint" class="hint-card"></div>
+          <div class="race-actions">
+            <button id="btnEnd" class="btn btn-danger" type="button">⏹ KẾT THÚC SỚM</button>
+            <button id="btnSummary" class="btn btn-gold" type="button" hidden>🏆 XEM KẾT QUẢ</button>
+            <button id="btnReplay" class="btn" type="button" hidden>🎬 XEM LẠI CUỘC ĐUA</button>
+            <button id="btnNewRound" class="btn btn-success" type="button" hidden>🔄 TRẬN MỚI</button>
+          </div>
+          <div id="replayBox" class="replay-box" hidden>
+            <span>🎬 XEM LẠI</span>
+            <button class="btn" id="rpPlay" type="button">⏸</button>
+            <button class="btn rp-speed" data-speed="1" type="button">×1</button>
+            <button class="btn rp-speed" data-speed="4" type="button">×4</button>
+            <button class="btn rp-speed" data-speed="8" type="button">×8</button>
+            <button class="btn btn-danger" id="rpExit" type="button">Thoát</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== MÀN HÌNH HỌC SINH ===================== -->
+    <section id="viewStudent" class="view" hidden>
+      <div id="studentConnecting" class="center-msg">⏳ Đang kết nối phòng…</div>
+
+      <div id="studentPick" hidden>
+        <h2 class="pick-title">Chọn đội của bạn</h2>
+        <p class="small-note center">Mỗi đội chỉ có <b>một</b> điện thoại. Chọn đúng đội rồi chờ cô bắt đầu.</p>
+        <div id="pickGrid" class="pick-grid"></div>
+        <div id="pickMsg" class="form-msg"></div>
+      </div>
+
+      <div id="studentGame" hidden>
+        <div class="stu-bar">
+          <div id="stuTeam" class="stu-team"></div>
+          <div class="stu-stats">
+            <div>❌ Lỗi <b id="stuErrors">0</b></div>
+            <div>⏱ Phạt <b id="stuPenalty">+0s</b></div>
+            <div>📍 Bước <b id="stuProgress">0/0</b></div>
+          </div>
+        </div>
+        <div id="banner" class="banner info">Chờ cô giáo bắt đầu…</div>
+        <div class="maze-wrap">
+          <div id="maze" class="maze"></div>
+          <div id="overlay" class="overlay" hidden></div>
+        </div>
+        <div id="stuHint" class="hint-card"></div>
+        <div class="stu-actions">
+          <button id="btnResults" class="btn btn-gold" type="button" hidden>🏆 Xem kết quả</button>
+          <button id="btnLeave" class="btn" type="button" hidden>↩️ Đổi đội</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== CỬA SỔ ===================== -->
+  <div id="summaryModal" class="modal-overlay" hidden>
+    <div class="modal-box wide">
+      <h2>🏆 BẢNG TỔNG KẾT TRẬN ĐẤU</h2>
+      <p id="summarySub" class="modal-sub"></p>
+      <div class="table-scroll">
+        <table class="table-summary">
+          <thead>
+            <tr><th>Hạng</th><th>Đội</th><th>Kết quả</th><th>Thời gian</th><th>Lỗi</th><th>Phạt</th><th>Tổng</th><th></th></tr>
+          </thead>
+          <tbody id="summaryBody"></tbody>
+        </table>
+      </div>
+      <p class="small-note">Xếp hạng: đội về đích xếp theo <b>tổng thời gian = thời gian đi + phạt lỗi</b>; đội chưa về đích xếp theo số bước đã đi được, rồi ít lỗi hơn.</p>
+      <div class="modal-actions" id="summaryActions">
+        <button class="btn" id="btnToggleAll" type="button">📂 Mở/đóng tất cả chi tiết</button>
+        <button class="btn host-only" id="btnCsv" type="button">📥 Tải kết quả (CSV)</button>
+        <button class="btn btn-gold host-only" id="sumReplay" type="button">🎬 Xem lại cuộc đua</button>
+        <button class="btn btn-success host-only" id="sumNew" type="button">🔄 Trận mới</button>
+        <button class="btn" id="sumClose" type="button">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="qrModal" class="modal-overlay" hidden>
+    <div class="modal-box center">
+      <h2>📱 MÃ QR PHÒNG</h2>
+      <div id="bigQr" class="qr-box big"></div>
+      <div class="big-code" id="bigCode"></div>
+      <div class="small-note" id="bigLink"></div>
+      <div class="modal-actions">
+        <button class="btn" id="qrCopy" type="button">📋 Sao chép link</button>
+        <button class="btn btn-gold" id="qrClose" type="button">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="previewModal" class="modal-overlay" hidden>
+    <div class="modal-box">
+      <h2>🔍 MÊ CUNG MẪU</h2>
+      <p class="modal-sub" id="previewSub"></p>
+      <div id="previewMap"></div>
+      <div class="modal-actions">
+        <button class="btn" id="previewReroll" type="button">🎲 Mê cung khác</button>
+        <button class="btn btn-gold" id="previewClose" type="button">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="modal-overlay" hidden>
+    <div class="modal-box small">
+      <h2 id="confirmTitle">Xác nhận</h2>
+      <p id="confirmText" class="modal-sub"></p>
+      <div class="modal-actions">
+        <button class="btn" id="confirmNo" type="button">Hủy</button>
+        <button class="btn btn-danger" id="confirmYes" type="button">Đồng ý</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="vendor/qrcode.min.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
