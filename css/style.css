@@ -324,3 +324,16 @@ body[data-view="student"] .topbar { padding: 6px 10px; }
   .mini .m { font-size: .66rem; }
   .table-summary tr.me { background: rgba(245,158,11,.08); }
 }
+
+/* ------------------------------------------------ bản đồ trên máy chiếu */
+.race-main { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 14px; align-items: stretch; flex: 1; }
+.host-board { display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(3, minmax(92px, 1fr)); gap: 10px; background: var(--panel-bg); border: 2px solid #1e293b; border-radius: 12px; padding: 12px; }
+.host-board .cell { font-size: clamp(1.1rem, 2.2vw, 1.9rem); padding-bottom: 20px; }
+.cell-cars { position: absolute; bottom: 3px; left: 0; right: 0; display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; }
+.car-badge { font-size: .68rem; font-weight: 800; padding: 1px 5px; border-radius: 4px; color: #fff; line-height: 1.3; }
+.race-main .lanes { gap: 8px; justify-content: space-between; }
+.race-main .lane { grid-template-columns: 1fr auto; gap: 6px 12px; padding: 10px 14px; }
+.race-main .lane .lane-track { grid-column: 1 / -1; grid-row: 2; height: 30px; }
+.race-main .lane .lane-right { grid-row: 1; grid-column: 2; }
+.race-main .lane-name { font-size: 1.1rem; }
+@media (max-width: 1100px) { .race-main { grid-template-columns: 1fr; } }

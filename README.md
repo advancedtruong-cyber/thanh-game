@@ -4,7 +4,7 @@ Game thi đấu 4 đội trên lớp: **1 máy cô (máy chiếu)** + **4 điệ
 
 - **Cô:** mở trang → *Tạo phòng mới* → cho học sinh quét QR → chỉnh cài đặt → *Bắt đầu*.
 - **Học sinh:** quét QR (hoặc nhập mã 6 ký tự) → chọn đội → đi qua các ô chia hết.
-- Nội dung: chia hết cho 2/3/4/5/9/10; độ khó 6/8/10 bước; phạt +N giây mỗi lỗi; mỗi đội một mê cung riêng (hoặc chung).
+- Nội dung **cố định theo giáo án**: chia hết cho 3, sơ đồ 3×6 với các số 5 / 24 / 126 / 72 / 123 / 136 · 21 / 15 / 36 / 66 / 1 245 · 12 / 6 / 19 / 54 / 77 (đáp án: START → 21 → 15 → 36 → 66 → 1 245 → THÀNH CỔ). Cô chỉ chỉnh thời gian, phạt lỗi, ẩn/hiện tiến độ, gợi ý.
 - Tổng kết: bảng xếp hạng + chi tiết hành trình **của cả 4 đội** (cô và học sinh đều xem được), tải CSV, xem lại cuộc đua.
 
 ## Kiến trúc

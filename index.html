@@ -82,14 +82,6 @@
 
           <div class="card settings">
             <h2>⚙️ Cài đặt trận</h2>
-            <label>Nội dung <select id="cfgDivisor" class="input"></select></label>
-            <label>Độ khó
-              <select id="cfgSteps" class="input">
-                <option value="6">Dễ — 6 bước</option>
-                <option value="8">Vừa — 8 bước</option>
-                <option value="10">Khó — 10 bước</option>
-              </select>
-            </label>
             <label>Thời gian
               <select id="cfgDuration" class="input">
                 <option value="120">2 phút</option><option value="180">3 phút</option>
@@ -104,15 +96,9 @@
                 <option value="20">+20 giây</option>
               </select>
             </label>
-            <label>Mê cung
-              <select id="cfgSame" class="input">
-                <option value="0">Mỗi đội một mê cung riêng (chống chép bài)</option>
-                <option value="1">Cả 4 đội cùng một mê cung</option>
-              </select>
-            </label>
-            <label class="check"><input type="checkbox" id="cfgLanes"> Hiện tiến độ các đội trên máy chiếu</label>
+            <label class="check"><input type="checkbox" id="cfgLanes"> Hiện xe &amp; tiến độ các đội trên máy chiếu (tắt = chỉ hiện xe đã về đích)</label>
             <label class="check"><input type="checkbox" id="cfgHint"> Hiện gợi ý "dấu hiệu chia hết" cho học sinh</label>
-            <button class="btn" id="btnPreview" type="button">🔍 Xem thử một mê cung mẫu</button>
+            <button class="btn" id="btnPreview" type="button">🔍 Xem sơ đồ &amp; đáp án (theo giáo án)</button>
           </div>
         </div>
 
@@ -128,7 +114,10 @@
           <div id="raceMission" class="mission"></div>
           <div id="raceStatus" class="race-status"></div>
         </div>
-        <div id="lanes" class="lanes"></div>
+        <div class="race-main">
+          <div id="hostBoard" class="host-board"></div>
+          <div id="lanes" class="lanes"></div>
+        </div>
         <div class="race-bottom">
           <div id="raceHint" class="hint-card"></div>
           <div class="race-actions">
@@ -222,11 +211,10 @@
 
   <div id="previewModal" class="modal-overlay" hidden>
     <div class="modal-box">
-      <h2>🔍 MÊ CUNG MẪU</h2>
+      <h2>🔍 SƠ ĐỒ MÊ CUNG (THEO GIÁO ÁN)</h2>
       <p class="modal-sub" id="previewSub"></p>
       <div id="previewMap"></div>
       <div class="modal-actions">
-        <button class="btn" id="previewReroll" type="button">🎲 Mê cung khác</button>
         <button class="btn btn-gold" id="previewClose" type="button">Đóng</button>
       </div>
     </div>

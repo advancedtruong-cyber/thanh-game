@@ -52,7 +52,7 @@
     summaryGid: null, prevKey: null, lastCd: null,
     replay: null, flash: null, banner: { text: 'Chờ cô giáo bắt đầu…', type: 'info' },
     sfx: LS.get('maze.sfx', true) !== false, bgm: LS.get('maze.bgm', true) !== false,
-    conn: 'idle', skews: [], netStart: 0, previewSeed: 'preview-1'
+    conn: 'idle', skews: [], netStart: 0
   };
   App.ntfy = NTFY;
 
@@ -583,28 +583,19 @@
   }
 
   /* ---- Cô giáo ---- */
-  const DIV_LABEL = d => `Chia hết cho ${d}` + (d === 3 ? ' (Toán 6)' : '');
   function initHostForm() {
-    const sel = $('#cfgDivisor');
-    sel.innerHTML = C.DIVISORS.map(d => `<option value="${d}">${DIV_LABEL(d)}</option>`).join('');
-    const bind = (id, get, set) => {
+    const bind = (id, set) => {
       const el = $(id);
       el.addEventListener('change', () => { set(el); App.cfg = C.normCfg(App.cfg); LS.set('maze.cfg', App.cfg); render(); });
-      return el;
     };
-    bind('#cfgDivisor', e => e.value, e => { App.cfg.divisor = +e.value; });
-    bind('#cfgSteps', 0, e => { App.cfg.steps = +e.value; });
-    bind('#cfgDuration', 0, e => { App.cfg.durationSec = +e.value; });
-    bind('#cfgPenalty', 0, e => { App.cfg.penaltySec = +e.value; });
-    bind('#cfgSame', 0, e => { App.cfg.sameMaze = e.value === '1'; });
-    bind('#cfgLanes', 0, e => { App.cfg.showLanes = e.checked; });
-    bind('#cfgHint', 0, e => { App.cfg.showHint = e.checked; });
+    bind('#cfgDuration', e => { App.cfg.durationSec = +e.value; });
+    bind('#cfgPenalty', e => { App.cfg.penaltySec = +e.value; });
+    bind('#cfgLanes', e => { App.cfg.showLanes = e.checked; });
+    bind('#cfgHint', e => { App.cfg.showHint = e.checked; });
   }
   function syncHostForm() {
     const set = (id, v) => { const el = $(id); if (document.activeElement !== el) el.value = String(v); };
-    set('#cfgDivisor', App.cfg.divisor); set('#cfgSteps', App.cfg.steps);
     set('#cfgDuration', App.cfg.durationSec); set('#cfgPenalty', App.cfg.penaltySec);
-    set('#cfgSame', App.cfg.sameMaze ? '1' : '0');
     $('#cfgLanes').checked = App.cfg.showLanes; $('#cfgHint').checked = App.cfg.showHint;
   }
 
@@ -681,7 +672,38 @@
   function laneView(R, t) {
     if (App.replay) return C.teamAt(R, t, App.replay.t);
     const tm = R.teams[t];
-    return { progress: tm.best, errors: tm.errors, finished: tm.finished, finishAt: tm.finishAt, steps: R.mazes[t].steps };
+    return { pos: tm.pos, progress: tm.best, errors: tm.errors, finished: tm.finished, finishAt: tm.finishAt, steps: R.mazes[t].steps };
+  }
+
+  function renderHostBoard(R, status, showAll) {
+    const maze = R.mazes[1];
+    const reveal = status === 'running' || status === 'ended' || !!App.replay;
+    const cars = {};
+    C.TEAMS.forEach(t => {
+      if (!R.teams[t].joined) return;
+      const v = laneView(R, t);
+      if (!(showAll || v.finished)) return;
+      const pos = v.finished ? C.FINISH : v.pos;
+      (cars[C.key(pos.r, pos.c)] = cars[C.key(pos.r, pos.c)] || []).push(t);
+    });
+    const frag = document.createDocumentFragment();
+    for (let r = 0; r < C.ROWS; r++) for (let c = 0; c < C.COLS; c++) {
+      const cell = maze.cells[r][c];
+      const div = document.createElement('div');
+      div.className = 'cell' + (cell.kind === 'start' ? ' start' : cell.kind === 'finish' ? ' finish' : '');
+      if (cell.kind === 'start') div.innerHTML = '<small>🚩 START</small>';
+      else if (cell.kind === 'finish') div.innerHTML = '<small>THÀNH CỔ</small><span>🏰</span>';
+      else if (reveal) div.textContent = cell.label;
+      else { div.textContent = '?'; div.classList.add('masked'); }
+      const here = cars[C.key(r, c)];
+      if (here) {
+        const dock = document.createElement('div'); dock.className = 'cell-cars';
+        dock.innerHTML = here.map(t => `<span class="car-badge" style="background:${C.TEAM_META[t].color}">${C.TEAM_META[t].icon} Đ${t}</span>`).join('');
+        div.appendChild(dock);
+      }
+      frag.appendChild(div);
+    }
+    $('#hostBoard').replaceChildren(frag);
   }
 
   function renderLanes() {
@@ -689,7 +711,8 @@
     const R = curRound();
     if (!R) return;
     const status = curStatus();
-    const showAll = App.replay || status === 'ended' || R.cfg.showLanes;
+    const showAll = !!App.replay || status === 'ended' || R.cfg.showLanes;
+    renderHostBoard(R, status, showAll);
     C.TEAMS.forEach(t => {
       const lane = $(`[data-lane="${t}"]`);
       const f = n => $(`[data-f="${n}"]`, lane);
@@ -1066,9 +1089,8 @@
   /* Xem thử mê cung mẫu                                                 */
   /* ------------------------------------------------------------------ */
   function openPreview() {
-    const cfg = C.normCfg(App.cfg);
-    const R = { mazes: { 1: C.makeMaze(cfg, App.previewSeed, 1) } };
-    $('#previewSub').textContent = `${DIV_LABEL(cfg.divisor)} · ${cfg.steps} bước (đường ngắn nhất). Ô xanh = số hợp lệ, nét đứt vàng = một đường đi ngắn nhất, ô còn lại là bẫy.`;
+    const R = { mazes: { 1: C.makeMaze() } };
+    $('#previewSub').textContent = 'Sơ đồ cố định theo giáo án (chia hết cho 3). Ô xanh = số chia hết cho 3, nét đứt vàng = đường đi đúng, ô còn lại (5, 136, 19, 77) là bẫy.';
     $('#previewMap').innerHTML = `<div style="display:flex;justify-content:center">${miniMap(R, 1, { showValid: true })}</div>${MINI_LEGEND}`;
     $('#previewModal').hidden = false;
   }
@@ -1123,7 +1145,6 @@
     });
     $('#btnPreview').onclick = openPreview;
     $('#previewClose').onclick = () => { $('#previewModal').hidden = true; };
-    $('#previewReroll').onclick = () => { App.previewSeed = 'preview-' + randToken(5); openPreview(); };
     $('#seats').addEventListener('click', e => { const b = e.target.closest('[data-kick]'); if (b) hostKick(+b.dataset.kick); });
     $('#pickGrid').addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (b && !b.disabled) joinTeam(+b.dataset.pick); });
     $('#maze').addEventListener('click', e => { const c = e.target.closest('.cell'); if (c) onCellTap(+c.dataset.r, +c.dataset.c); });

@@ -16,8 +16,7 @@
   const START = { r: 1, c: 0 };
   const FINISH = { r: 2, c: 5 };
   const TEAMS = [1, 2, 3, 4];
-  const COUNTDOWN_SEC = 5;      // từ lúc bấm "Bắt đầu" tới lúc xuất phát
-  const MAX_VALID_INTERIOR = 10;  // tối đa 10/16 ô số hợp lệ => luôn có ≥ 6 ô "bẫy"
+  const COUNTDOWN_SEC = 3;      // 3-2-1 như bản gốc, tính từ lúc bấm "Bắt đầu"
   const WRONG_LOCK_MS = 2000;   // khóa thao tác sau mỗi lần chọn sai (phía học sinh)
   const TEAM_META = {
     1: { name: 'Đội 1', icon: '🚙', color: '#3b82f6' },
@@ -31,101 +30,39 @@
   /* ------------------------------------------------------------------ */
   const digitSum = n => String(Math.abs(n)).split('').reduce((a, b) => a + (+b), 0);
   const RULES = {
-    2: {
-      label: '2',
-      hint: 'Số có chữ số tận cùng là 0, 2, 4, 6, 8 thì chia hết cho 2.',
-      explain: n => `chữ số tận cùng là ${n % 10}`
-    },
     3: {
       label: '3',
       hint: 'Số có tổng các chữ số chia hết cho 3 thì chia hết cho 3.',
       explain: n => `tổng các chữ số = ${digitSum(n)}`
-    },
-    4: {
-      label: '4',
-      hint: 'Số có hai chữ số tận cùng tạo thành số chia hết cho 4 thì chia hết cho 4.',
-      explain: n => `hai chữ số tận cùng là ${String(n % 100).padStart(2, '0')}`
-    },
-    5: {
-      label: '5',
-      hint: 'Số có chữ số tận cùng là 0 hoặc 5 thì chia hết cho 5.',
-      explain: n => `chữ số tận cùng là ${n % 10}`
-    },
-    9: {
-      label: '9',
-      hint: 'Số có tổng các chữ số chia hết cho 9 thì chia hết cho 9.',
-      explain: n => `tổng các chữ số = ${digitSum(n)}`
-    },
-    10: {
-      label: '10',
-      hint: 'Số có chữ số tận cùng là 0 thì chia hết cho 10.',
-      explain: n => `chữ số tận cùng là ${n % 10}`
     }
   };
-  const DIVISORS = Object.keys(RULES).map(Number);
+  const DIVISORS = [3];
   const isMultiple = (n, d) => n % d === 0;
   const explain = (d, n) => (RULES[d] || RULES[3]).explain(n);
 
   /* ------------------------------------------------------------------ */
   /* Cấu hình trận                                                       */
   /* ------------------------------------------------------------------ */
-  const STEPS_OPTIONS = [6, 8, 10];
   function clampInt(v, lo, hi, dflt) {
     v = Math.round(Number(v));
     return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt;
   }
+  // Nội dung (số trong mê cung, chia hết cho 3, 6 bước) CỐ ĐỊNH theo giáo án — không còn tuỳ chọn.
   function normCfg(c) {
     c = c || {};
-    const divisor = DIVISORS.includes(Number(c.divisor)) ? Number(c.divisor) : 3;
-    const steps = STEPS_OPTIONS.includes(Number(c.steps)) ? Number(c.steps) : 8;
     return {
-      divisor,
-      steps,
+      divisor: 3,
+      steps: 6,
       durationSec: clampInt(c.durationSec, 60, 1800, 180),
       penaltySec: clampInt(c.penaltySec, 0, 60, 10),
-      decoys: clampInt(c.decoys, 0, 4, 2),
-      sameMaze: !!c.sameMaze,
       showLanes: c.showLanes !== false,
       showHint: c.showHint !== false
     };
   }
 
   /* ------------------------------------------------------------------ */
-  /* PRNG xác định (cùng seed => cùng mê cung trên mọi máy)              */
-  /* ------------------------------------------------------------------ */
-  function xmur3(str) {
-    let h = 1779033703 ^ str.length;
-    for (let i = 0; i < str.length; i++) {
-      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-      h = (h << 13) | (h >>> 19);
-    }
-    return function () {
-      h = Math.imul(h ^ (h >>> 16), 2246822507);
-      h = Math.imul(h ^ (h >>> 13), 3266489909);
-      return (h ^= h >>> 16) >>> 0;
-    };
-  }
-  function mulberry32(a) {
-    return function () {
-      a |= 0; a = (a + 0x6D2B79F5) | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  const rngFrom = str => mulberry32(xmur3(String(str))());
-  function shuffle(arr, rng) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-  const randInt = (rng, lo, hi) => lo + Math.floor(rng() * (hi - lo + 1));
-
-  /* ------------------------------------------------------------------ */
-  /* Mê cung                                                             */
+  /* Mê cung CỐ ĐỊNH theo giáo án "Trò chơi đoàn xe 6A1"                  */
+  /* (giữ nguyên MAZE_DATA của bản game gốc; mọi đội cùng một sơ đồ)       */
   /* ------------------------------------------------------------------ */
   const key = (r, c) => r * COLS + c;
   const inBounds = (r, c) => r >= 0 && r < ROWS && c >= 0 && c < COLS;
@@ -134,6 +71,12 @@
     return [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]
       .filter(([a, b]) => inBounds(a, b)).map(([a, b]) => ({ r: a, c: b }));
   }
+  const MAZE_VALUES = [
+    [5, 24, 126, 72, 123, 136],
+    [null, 21, 15, 36, 66, 1245],
+    [12, 6, 19, 54, 77, null]
+  ];
+  const MAZE_LABELS = { 1245: '1 245' };   // đúng cách viết trong giáo án / bản gốc
 
   // Khoảng cách (số bước) từ mọi ô hợp lệ tới FINISH, đi qua các ô hợp lệ
   function bfsDist(validKeys) {
@@ -153,108 +96,35 @@
     return dist;
   }
 
-  // Mọi đường đi tự tránh từ START tới FINISH trên lưới 3x6 (~360 đường), gom theo
-  // độ dài đường ngắn nhất thực sự (có tính cả lối tắt giữa các ô của chính đường đó).
-  let _shapes = null;
-  function shapesByLength() {
-    if (_shapes) return _shapes;
-    const out = {};
-    const visited = new Set([key(START.r, START.c)]);
-    const path = [START];
-    (function dfs() {
-      const cur = path[path.length - 1];
-      if (cur.r === FINISH.r && cur.c === FINISH.c) {
-        const keys = path.map(p => key(p.r, p.c));
-        const L = bfsDist(keys).get(key(START.r, START.c));
-        if (path.length - 2 <= MAX_VALID_INTERIOR) (out[L] = out[L] || []).push(path.map(p => ({ r: p.r, c: p.c })));
-        return;
-      }
-      for (const n of neighbors(cur.r, cur.c)) {
-        const k = key(n.r, n.c);
-        if (visited.has(k)) continue;
-        visited.add(k); path.push(n);
-        dfs();
-        path.pop(); visited.delete(k);
-      }
-    })();
-    _shapes = out;
-    return out;
-  }
-
-  function fmtNum(n) {
-    const s = String(n);
-    return s.length > 3 ? s.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0') : s;
-  }
-
-  function makeValue(rng, d, valid, used) {
-    for (let attempt = 0; attempt < 200; attempt++) {
-      const x = rng();
-      const [lo, hi] = x < 0.3 ? [10, 99] : x < 0.8 ? [100, 999] : [1000, 2999];
-      const m = d * randInt(rng, Math.ceil(lo / d), Math.floor(hi / d));
-      let v = m;
-      if (!valid) {
-        // "gần đúng": lệch một chút so với một bội số để dễ tính nhầm
-        const off = randInt(rng, 1, d - 1);
-        v = rng() < 0.7 ? m + off : m - (d - off);
-        if (v < 10 || isMultiple(v, d)) continue;
-      }
-      if (v < 10 || used.has(v)) continue;
-      used.add(v);
-      return v;
-    }
-    throw new Error('Không sinh được số cho ô mê cung');
-  }
-
-  function makeMaze(cfgIn, seed, team) {
-    const cfg = normCfg(cfgIn);
-    const shapes = shapesByLength()[cfg.steps] || [];
-    if (!shapes.length) throw new Error('Không có mê cung độ dài ' + cfg.steps);
-    const shapeOrder = shuffle(shapes, rngFrom(seed + '|shape'));
-    const slot = cfg.sameMaze ? 0 : (team - 1);
-    const shape = shapeOrder[slot % shapeOrder.length];
-    const rng = rngFrom(seed + '|vals|' + (cfg.sameMaze ? 0 : team));
-
-    const valid = new Set(shape.map(p => key(p.r, p.c)));
-    // ô hợp lệ "mồi" (ngõ cụt) — không được làm đường ngắn đi
-    const startKey = key(START.r, START.c), finishKey = key(FINISH.r, FINISH.c);
-    const free = [];
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-      const k = key(r, c);
-      if (!valid.has(k)) free.push({ r, c, k });
-    }
-    let decoys = 0;
-    for (const f of shuffle(free, rng)) {
-      if (decoys >= cfg.decoys || valid.size - 2 >= MAX_VALID_INTERIOR) break;
-      const trial = new Set(valid); trial.add(f.k);
-      if (bfsDist(trial).get(startKey) === cfg.steps) { valid.add(f.k); decoys++; }
-    }
-    const dist = bfsDist(valid);
-
-    const used = new Set();
+  let _maze = null;
+  function makeMaze() {
+    if (_maze) return _maze;
     const cells = [];
+    const valid = new Set();
     for (let r = 0; r < ROWS; r++) {
       const row = [];
       for (let c = 0; c < COLS; c++) {
-        const k = key(r, c);
-        if (k === startKey) row.push({ r, c, kind: 'start', val: null, label: 'START', valid: true });
-        else if (k === finishKey) row.push({ r, c, kind: 'finish', val: null, label: 'THÀNH CỔ', valid: true });
+        const v = MAZE_VALUES[r][c];
+        if (r === START.r && c === START.c) row.push({ r, c, kind: 'start', val: null, label: 'START', valid: true });
+        else if (r === FINISH.r && c === FINISH.c) row.push({ r, c, kind: 'finish', val: null, label: 'THÀNH CỔ', valid: true });
         else {
-          const isValid = valid.has(k);
-          const val = makeValue(rng, cfg.divisor, isValid, used);
-          row.push({ r, c, kind: 'num', val, label: fmtNum(val), valid: isValid });
+          const ok = v % 3 === 0;
+          if (ok) valid.add(key(r, c));
+          row.push({ r, c, kind: 'num', val: v, label: MAZE_LABELS[v] || String(v), valid: ok });
         }
       }
       cells.push(row);
     }
-    // một đường đi ngắn nhất thực sự (dùng để gợi ý đáp án khi tổng kết)
+    const dist = bfsDist(valid);
+    const steps = dist.get(key(START.r, START.c));
     const solution = [START];
     while (!(solution[solution.length - 1].r === FINISH.r && solution[solution.length - 1].c === FINISH.c)) {
       const cur = solution[solution.length - 1];
       const d = dist.get(key(cur.r, cur.c));
-      const next = neighbors(cur.r, cur.c).find(n => dist.get(key(n.r, n.c)) === d - 1);
-      solution.push(next);
+      solution.push(neighbors(cur.r, cur.c).find(n => dist.get(key(n.r, n.c)) === d - 1));
     }
-    return { rows: ROWS, cols: COLS, cells, steps: cfg.steps, solution, dist, divisor: cfg.divisor };
+    _maze = { rows: ROWS, cols: COLS, cells, steps, solution, dist, divisor: 3 };
+    return _maze;
   }
 
   // Tiến độ = số bước đã "đi đúng hướng" (steps - khoảng cách còn lại tới đích)
@@ -274,7 +144,7 @@
     const c = normCfg(cfg);
     const mazes = {}, teams = {};
     TEAMS.forEach(t => {
-      mazes[t] = makeMaze(c, seed, t);
+      mazes[t] = makeMaze();
       teams[t] = {
         pos: { r: START.r, c: START.c }, steps: [], errors: 0, best: 0, bestAt: null,
         finished: false, finishAt: null, joined: false
@@ -481,9 +351,9 @@
 
   return {
     ROWS, COLS, START, FINISH, TEAMS, TEAM_META, COUNTDOWN_SEC, WRONG_LOCK_MS,
-    RULES, DIVISORS, STEPS_OPTIONS, MAX_VALID_INTERIOR,
-    normCfg, makeMaze, shapesByLength, bfsDist, progressAt, isMultiple, explain, digitSum,
-    isAdjacent, neighbors, fmtNum, fmtTime, key,
+    RULES, DIVISORS, MAZE_VALUES,
+    normCfg, makeMaze, bfsDist, progressAt, isMultiple, explain, digitSum,
+    isAdjacent, neighbors, fmtTime, key,
     createState, newRound, applyEvent, roundStatus, effectiveEnd,
     teamSummary, ranking, teamAt
   };

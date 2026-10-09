@@ -20,38 +20,29 @@ function solutionMoves(maze) { return maze.solution.slice(1); }
 const pick = (st, ev, t, cell, dt = 1) =>
   Core.applyEvent(st, ev({ t: 'PICK', gid: 'g1', team: t, dev: 'dev' + t, r: cell.r, c: cell.c }, dt));
 
-test('mê cung: đường ngắn nhất đúng bằng số bước, ô hợp lệ ⇔ chia hết', () => {
-  for (const divisor of Core.DIVISORS) for (const steps of Core.STEPS_OPTIONS) for (let s = 0; s < 15; s++) {
-    for (const sameMaze of [false, true]) for (const team of Core.TEAMS) {
-      const cfg = { divisor, steps, sameMaze, decoys: 2 };
-      const m = Core.makeMaze(cfg, 'seed-' + s, team);
-      assert.equal(m.dist.get(Core.key(Core.START.r, Core.START.c)), steps);
-      const seen = new Set();
-      for (const row of m.cells) for (const cell of row) {
-        if (cell.kind !== 'num') continue;
-        assert.equal(cell.valid, Core.isMultiple(cell.val, divisor), `${cell.val} / ${divisor}`);
-        assert.ok(!seen.has(cell.val), 'trùng số');
-        seen.add(cell.val);
-      }
-      const traps = m.cells.flat().filter(c => c.kind === 'num' && !c.valid).length;
-      assert.ok(traps >= 6, 'quá ít ô bẫy: ' + traps);
-    }
-  }
+test('mê cung: khớp từng ô với giáo án (và bản game gốc)', () => {
+  const m = Core.makeMaze();
+  const grid = m.cells.map(row => row.map(c => c.kind === 'start' ? 'START' : c.kind === 'finish' ? 'FINISH' : c.label));
+  assert.deepEqual(grid, [
+    ['5', '24', '126', '72', '123', '136'],
+    ['START', '21', '15', '36', '66', '1 245'],
+    ['12', '6', '19', '54', '77', 'FINISH']
+  ]);
+  assert.deepEqual(m.cells.flat().filter(c => c.kind === 'num' && !c.valid).map(c => c.val).sort((a, b) => a - b), [5, 19, 77, 136]);
+  for (const c of m.cells.flat()) if (c.kind === 'num') assert.equal(c.valid, c.val % 3 === 0);
+  assert.equal(m.steps, 6);
+  assert.deepEqual(m.solution.map(p => m.cells[p.r][p.c].label), ['START', '21', '15', '36', '66', '1 245', 'THÀNH CỔ']);
 });
 
-test('mê cung: xác định theo seed, khác nhau giữa các đội, giống nhau khi sameMaze', () => {
-  const sig = m => m.cells.flat().map(c => c.label).join(',');
-  const a = Core.makeMaze({ steps: 8 }, 'x', 1), a2 = Core.makeMaze({ steps: 8 }, 'x', 1);
-  assert.equal(sig(a), sig(a2));
-  const labels = Core.TEAMS.map(t => sig(Core.makeMaze({ steps: 8 }, 'x', t)));
-  assert.equal(new Set(labels).size, 4);
-  const same = Core.TEAMS.map(t => sig(Core.makeMaze({ steps: 8, sameMaze: true }, 'x', t)));
-  assert.equal(new Set(same).size, 1);
-});
-
-test('mê cung: có đủ ≥4 hình dạng khác nhau cho mỗi độ khó', () => {
-  const shapes = Core.shapesByLength();
-  for (const L of Core.STEPS_OPTIONS) assert.ok(shapes[L].length >= 4, `L=${L}: ${shapes[L] && shapes[L].length}`);
+test('mê cung: mọi đội dùng đúng một sơ đồ, cấu hình không đổi được nội dung', () => {
+  const st = Core.createState();
+  Core.applyEvent(st, { id: 'a', time: 1, body: { t: 'ROOM', pub: { x: 1 } } });
+  Core.applyEvent(st, { id: 'b', time: 2, body: { t: 'START', gid: 'g', cfg: { divisor: 5, steps: 10, sameMaze: false, seed: 'x' }, seed: 's' } });
+  const R = st.round;
+  assert.equal(R.cfg.divisor, 3);
+  assert.equal(R.cfg.steps, 6);
+  for (const t of Core.TEAMS) assert.equal(R.mazes[t], R.mazes[1]);
+  assert.equal(R.startAt, 2 + 3, 'đếm ngược 3 giây như bản gốc');
 });
 
 test('ghế: ai đến trước được, một thiết bị một ghế, KICK/LEAVE', () => {
@@ -150,17 +141,17 @@ test('hết giờ: tin PICK sau endAt bị bỏ qua; END thủ công', () => {
 });
 
 test('END thủ công; LOBBY và START mới đặt lại ván, giữ ghế', () => {
-  const { st, ev, start } = setup({ steps: 6 });
+  const { st, ev, start } = setup({ penaltySec: 10 });
   seat(st, ev, 1);
   start();
-  assert.equal(start('g2', { steps: 8 }, 's2'), false, 'đang chạy thì không START chồng');
+  assert.equal(start('g2', { durationSec: 300 }, 's2'), false, 'đang chạy thì không START chồng');
   assert.equal(Core.applyEvent(st, ev({ t: 'LOBBY' })), false, 'đang chạy thì không về sảnh');
   assert.equal(Core.applyEvent(st, ev({ t: 'END', gid: 'g1' }, 10)), true);
   assert.equal(st.round.endReason, 'manual');
   assert.equal(start('g1'), false, 'trùng gid');
-  assert.equal(start('g2', { steps: 8 }, 's2'), true);
+  assert.equal(start('g2', { durationSec: 300 }, 's2'), true);
   assert.ok(st.claims[1], 'ghế vẫn còn');
-  assert.equal(st.round.cfg.steps, 8);
+  assert.equal(st.round.cfg.durationSec, 300);
   Core.applyEvent(st, ev({ t: 'END', gid: 'g2' }, 1));
   assert.equal(Core.applyEvent(st, ev({ t: 'LOBBY' })), true);
   assert.equal(st.round, null);
@@ -190,9 +181,5 @@ test('teamAt: dựng lại trạng thái theo thời điểm (replay)', () => {
 test('định dạng', () => {
   assert.equal(Core.fmtTime(65), '01:05');
   assert.equal(Core.fmtTime(-3), '00:00');
-  assert.equal(Core.fmtNum(1245), '1\u00A0245');
-  assert.equal(Core.fmtNum(126), '126');
   assert.match(Core.explain(3, 1245), /= 12/);
-  assert.match(Core.explain(5, 1245), /5/);
-  assert.match(Core.explain(4, 1245), /45/);
 });

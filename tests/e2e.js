@@ -78,12 +78,13 @@ async function main() {
 
   /* ---------- cô đặt cấu hình & bắt đầu ---------- */
   console.log('\n[3] Cô cài đặt và bắt đầu');
-  await host.selectOption('#cfgSteps', '6');
   await host.selectOption('#cfgDuration', '120');
   await host.selectOption('#cfgPenalty', '10');
   await host.screenshot({ path: path.join(SHOTS, '03-lobby.png') });
   await host.click('#btnPreview');
-  ok(await host.locator('#previewMap .mini .m').count() === 18, 'xem thử mê cung mẫu (18 ô)');
+  ok(await host.locator('#previewMap .mini .m').count() === 18, 'xem sơ đồ giáo án (18 ô)');
+  const prevText = (await host.locator('#previewMap .mini').innerText()).replace(/\s+/g, ' ');
+  ok(['24','126','72','123','21','15','36','66','1 245','12','6','19','54','77','136','5'].every(n => prevText.includes(n)), 'sơ đồ hiển thị đúng các số trong giáo án');
   await host.click('#previewClose');
   await host.click('#btnStart');
   await host.waitForSelector('#hostRace:not([hidden])');
@@ -91,7 +92,7 @@ async function main() {
   await phones[0].page.waitForTimeout(500);
   await phones[0].page.screenshot({ path: path.join(SHOTS, '04-countdown.png') });
   const startMsgs = await host.evaluate(() => window.__maze.App.st.round.cfg);
-  eq([startMsgs.steps, startMsgs.durationSec, startMsgs.penaltySec], [6, 120, 10], 'cấu hình trong tin START được áp dụng');
+  eq([startMsgs.steps, startMsgs.divisor, startMsgs.durationSec, startMsgs.penaltySec], [6, 3, 120, 10], 'cấu hình trong tin START được áp dụng');
   // Học sinh không thấy mê cung trong lúc đếm ngược
   ok(await phones[0].page.locator('#maze .cell.masked').count() > 10, 'mê cung bị che trong lúc đếm ngược');
   for (const p of phones) await p.page.waitForFunction(() => window.__maze.status() === 'running', null, { timeout: 15000 });
@@ -153,6 +154,10 @@ async function main() {
 
   // Cô thấy tiến độ trên máy chiếu (lanes)
   await host.waitForFunction(() => window.__maze.App.st.round.teams[2].finished);
+  await host.waitForFunction(() => window.__maze.status() === 'running');
+  const board = (await host.locator('#hostBoard').innerText()).replace(/\s+/g, ' ');
+  ok(['5','24','126','72','123','136','21','15','36','66','1 245','12','6','19','54','77'].every(n => board.includes(n)), 'máy chiếu hiển thị đúng sơ đồ số theo giáo án');
+  ok(/START/.test(board) && /THÀNH CỔ/.test(board), 'có ô START và THÀNH CỔ trên máy chiếu');
   await host.screenshot({ path: path.join(SHOTS, '07-host-race.png') });
   const lane3 = await host.textContent('[data-lane="3"] [data-f="steps"]');
   ok(/Bước 2\/6/.test(lane3), `máy chiếu thấy Đội 3 ở ${lane3.trim()}`);
@@ -263,13 +268,12 @@ async function main() {
   await host.waitForSelector('#hostLobby:not([hidden])');
   await phones[0].page.waitForFunction(() => window.__maze.App.st.round === null, null, { timeout: 8000 });
   ok(await host.locator('.seat.taken').count() === 4, 'sau "Trận mới" các đội vẫn giữ ghế');
-  await host.selectOption('#cfgSame', '1');
   await host.uncheck('#cfgLanes');
   await host.evaluate(() => { window.__maze.App.cfg.durationSec = 60; });   // để kiểm tra hết giờ tự động
   await host.click('#btnStart');
-  await phones[1].page.waitForFunction(() => window.__maze.App.st.round && window.__maze.App.st.round.cfg.sameMaze === true, null, { timeout: 8000 });
+  for (const p of phones) await p.page.waitForFunction(() => window.__maze.App.st.round && window.__maze.App.st.round.gid, null, { timeout: 20000 });
   const sig = await Promise.all(phones.map(p => p.page.evaluate(() => { const { App, Core } = window.__maze; const me = Core.TEAMS.find(t => App.st.claims[t].dev === App.key.dev); return App.st.round.mazes[me].cells.flat().map(c => c.label).join(','); })));
-  ok(new Set(sig).size === 1, 'tuỳ chọn "cùng một mê cung" cho cả 4 đội bản giống nhau');
+  ok(new Set(sig).size === 1 && sig[0] === '5,24,126,72,123,136,START,21,15,36,66,1 245,12,6,19,54,77,THÀNH CỔ', 'cả 4 đội đều nhận đúng sơ đồ cố định theo giáo án');
   await host.waitForFunction(() => window.__maze.status() === 'running', null, { timeout: 15000 });
   ok(await host.locator('[data-lane="1"] [data-f="hidden"]').isVisible(), 'tuỳ chọn ẩn tiến độ: máy chiếu hiện "🔒" thay vì vị trí xe');
   // một đội đi 1 bước; không ai kết thúc => hết giờ tự động trên MỌI máy (không cần cô bấm)
